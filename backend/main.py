@@ -1,13 +1,17 @@
+import mimetypes
 import os
 import sqlite3
 from typing import Any
 
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from google import genai
+from google.genai import types
 from pydantic import BaseModel
 
 DATABASE_NAME = 'kisansetu.db'
+GEMINI_MODEL = 'gemini-3.6-flash'
 
 app = FastAPI(title='KisanSetu Backend')
 
@@ -103,7 +107,9 @@ def init_db() -> None:
         '''
     )
 
-    count = cursor.execute('SELECT COUNT(*) AS count FROM machinery').fetchone()['count']
+    count = cursor.execute(
+        'SELECT COUNT(*) AS count FROM machinery'
+    ).fetchone()['count']
     if count == 0:
         cursor.executemany(
             '''
@@ -183,6 +189,16 @@ class MachineryBooking(BaseModel):
     hours: int
 
 
+class CropDiseaseResult(BaseModel):
+    crop: str
+    health_status: str
+    disease_name: str
+    confidence: str
+    symptoms: list[str]
+    recommendations: list[str]
+    caution: str
+
+
 def rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
 
@@ -222,7 +238,9 @@ def create_farm_plan(plan: FarmPlan) -> dict[str, Any]:
 @app.get('/farm-plans')
 def get_farm_plans() -> list[dict[str, Any]]:
     connection = get_connection()
-    rows = connection.execute('SELECT * FROM farm_plans ORDER BY id DESC').fetchall()
+    rows = connection.execute(
+        'SELECT * FROM farm_plans ORDER BY id DESC'
+    ).fetchall()
     connection.close()
     return rows_to_dicts(rows)
 
@@ -249,7 +267,9 @@ def create_worker(worker: Worker) -> dict[str, Any]:
 @app.get('/workers')
 def get_workers() -> list[dict[str, Any]]:
     connection = get_connection()
-    rows = connection.execute('SELECT * FROM workers ORDER BY id DESC').fetchall()
+    rows = connection.execute(
+        'SELECT * FROM workers ORDER BY id DESC'
+    ).fetchall()
     connection.close()
     return rows_to_dicts(rows)
 
@@ -318,7 +338,9 @@ def create_task(task: Task) -> dict[str, Any]:
 @app.get('/tasks')
 def get_tasks() -> list[dict[str, Any]]:
     connection = get_connection()
-    rows = connection.execute('SELECT * FROM tasks ORDER BY id DESC').fetchall()
+    rows = connection.execute(
+        'SELECT * FROM tasks ORDER BY id DESC'
+    ).fetchall()
     connection.close()
     return rows_to_dicts(rows)
 
@@ -451,6 +473,90 @@ def complete_machinery_booking(booking_id: int) -> dict[str, Any]:
     ).fetchone()
     connection.close()
     return dict(row)
+
+
+@app.post('/crop-disease/analyze')
+async def analyze_crop_disease(file: UploadFile = File(...)) -> dict[str, Any]:
+    # Browsers can omit the multipart content type for uploaded files.
+    # Fall back to the filename extension so valid PNG/JPEG images are accepted.
+    guessed_type = mimetypes.guess_type(file.filename or '')[0]
+    content_type = file.content_type if file.content_type and file.content_type.startswith('image/') else guessed_type
+    if not content_type or not content_type.startswith('image/'):
+        raise HTTPException(
+            status_code=400,
+            detail='Please upload a valid crop or leaf image.',
+        )
+
+    api_key = os.getenv('GEMINI_API_KEY')
+    if not api_key:
+        raise HTTPException(
+            status_code=500,
+            detail='GEMINI_API_KEY is not configured on the backend machine.',
+        )
+
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail='The uploaded image is empty.')
+
+    if len(image_bytes) > 20 * 1024 * 1024:
+        raise HTTPException(
+            status_code=413,
+            detail='Image is too large. Please choose an image below 20 MB.',
+        )
+
+    prompt = '''
+You are a crop-health assistant for an agriculture application called KisanSetu.
+Analyze the uploaded crop or leaf image carefully.
+
+Important rules:
+- Do not invent a disease when the image does not provide enough evidence.
+- If the image is not a crop/plant/leaf image, say so in the health_status and keep disease_name as "Not a crop image".
+- If the plant looks healthy, use health_status "Healthy" and disease_name "No obvious disease detected".
+- If there is not enough visual evidence for a reliable diagnosis, use health_status "Needs clearer image" and disease_name "Uncertain".
+- Identify the crop only when reasonably visible; otherwise use "Unknown".
+- Give practical, general recommendations, not exact pesticide dosage or chemical mixing instructions.
+- Mention that the result is an AI-assisted screening and should be confirmed by a local agriculture expert for important decisions.
+
+Return only the requested JSON structure.
+'''
+
+    try:
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=[
+                types.Part.from_bytes(
+                    data=image_bytes,
+                    mime_type=content_type,
+                ),
+                prompt,
+            ],
+            config=types.GenerateContentConfig(
+                response_mime_type='application/json',
+                response_schema=CropDiseaseResult,
+            ),
+        )
+
+        if not response.text:
+            raise HTTPException(
+                status_code=502,
+                detail='Gemini returned an empty analysis.',
+            )
+
+        result = CropDiseaseResult.model_validate_json(response.text)
+        return {
+            'success': True,
+            'model': GEMINI_MODEL,
+            'result': result.model_dump(),
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        print(f'Crop disease analysis failed: {exc}')
+        raise HTTPException(
+            status_code=502,
+            detail='Crop disease analysis failed. Please try again.',
+        ) from exc
 
 
 @app.get('/weather')

@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 const String apiBaseUrl = 'http://127.0.0.1:8000';
 
@@ -297,13 +299,7 @@ class HomePage extends StatelessWidget {
               title: 'Crop disease detection',
               subtitle: 'Upload a crop image for AI analysis',
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'AI crop disease detection will be added next.',
-                    ),
-                  ),
-                );
+                openPage(context, const CropDiseasePage());
               },
             ),
           ],
@@ -1497,6 +1493,604 @@ class _WorkersPageState extends State<WorkersPage> {
                       ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+class CropDiseasePage extends StatefulWidget {
+  const CropDiseasePage({super.key});
+
+  @override
+  State<CropDiseasePage> createState() => _CropDiseasePageState();
+}
+
+class _CropDiseasePageState extends State<CropDiseasePage> {
+  final ImagePicker _picker = ImagePicker();
+  XFile? selectedImage;
+  bool isSelecting = false;
+  bool isAnalyzing = false;
+  Map<String, dynamic>? analysisResult;
+  String? analysisError;
+
+  Future<void> pickImage(ImageSource source) async {
+    setState(() {
+      isSelecting = true;
+      analysisResult = null;
+      analysisError = null;
+    });
+
+    try {
+      final image = await _picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1600,
+      );
+
+      if (!mounted) return;
+
+      if (image != null) {
+        setState(() {
+          selectedImage = image;
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not select the crop image.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => isSelecting = false);
+      }
+    }
+  }
+
+  void showImageSourceOptions() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Take a photo'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                pickImage(ImageSource.camera);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void removeImage() {
+    setState(() {
+      selectedImage = null;
+      analysisResult = null;
+      analysisError = null;
+    });
+  }
+
+  Future<void> analyzeCrop() async {
+    if (selectedImage == null || isAnalyzing) return;
+
+    setState(() {
+      isAnalyzing = true;
+      analysisResult = null;
+      analysisError = null;
+    });
+
+    try {
+      final imageBytes = await selectedImage!.readAsBytes();
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$apiBaseUrl/crop-disease/analyze'),
+      );
+
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          imageBytes,
+          filename: selectedImage!.name,
+        ),
+      );
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+
+      if (!mounted) return;
+
+      Map<String, dynamic> decoded = {};
+      try {
+        decoded = jsonDecode(responseBody) as Map<String, dynamic>;
+      } catch (_) {
+        decoded = {};
+      }
+
+      if (response.statusCode == 200) {
+        final result = decoded['result'];
+        if (result is Map) {
+          setState(() {
+            analysisResult = Map<String, dynamic>.from(result);
+            analysisError = null;
+          });
+        } else {
+          setState(() {
+            analysisError = 'The AI response was not in the expected format.';
+          });
+        }
+      } else {
+        final detail = decoded['detail']?.toString();
+        setState(() {
+          analysisError = detail == null || detail.isEmpty
+              ? 'Crop analysis failed. Please try again.'
+              : detail;
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        analysisError =
+            'Could not connect to the KisanSetu AI backend. Make sure FastAPI is running.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => isAnalyzing = false);
+      }
+    }
+  }
+
+  Widget _buildAnalysisCard() {
+    if (analysisResult == null && analysisError == null) {
+      return const SizedBox.shrink();
+    }
+
+    if (analysisError != null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.error_outline, color: Colors.red.shade700),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                analysisError!,
+                style: TextStyle(color: Colors.red.shade900, height: 1.4),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final result = analysisResult!;
+    final symptoms = (result['symptoms'] as List?)
+            ?.map((item) => item.toString())
+            .toList() ??
+        <String>[];
+    final recommendations = (result['recommendations'] as List?)
+            ?.map((item) => item.toString())
+            .toList() ??
+        <String>[];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.health_and_safety,
+                  color: Color(0xFF2E7D32),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'AI analysis result',
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _resultRow('Crop', result['crop']?.toString() ?? 'Unknown'),
+          _resultRow(
+            'Health status',
+            result['health_status']?.toString() ?? 'Unknown',
+          ),
+          _resultRow(
+            'Disease',
+            result['disease_name']?.toString() ?? 'Uncertain',
+          ),
+          _resultRow(
+            'Confidence',
+            result['confidence']?.toString() ?? 'Unknown',
+          ),
+          if (symptoms.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Text(
+              'Observed symptoms',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            ...symptoms.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('•  '),
+                    Expanded(child: Text(item)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          if (recommendations.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'Recommended next steps',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            ...recommendations.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.check_circle_outline,
+                      size: 18,
+                      color: Color(0xFF2E7D32),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(child: Text(item)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          if ((result['caution'] ?? '').toString().trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                result['caution'].toString(),
+                style: TextStyle(
+                  color: Colors.orange.shade900,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _resultRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(color: Colors.black87, fontSize: 15),
+          children: [
+            TextSpan(
+              text: '$label: ',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            TextSpan(text: value),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = selectedImage != null;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Crop Disease Detection'),
+        backgroundColor: Colors.green.shade50,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.health_and_safety_outlined,
+                    size: 34,
+                    color: Color(0xFF2E7D32),
+                  ),
+                  SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Check your crop health',
+                          style: TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 6),
+                        Text(
+                          'Upload a clear crop or leaf photo and let the AI provide a screening result.',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            height: 1.45,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Crop image',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (!hasImage)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 34,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: Colors.green.shade100),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.image_search_outlined,
+                      size: 72,
+                      color: Colors.green.shade300,
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'No crop image selected',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    const Text(
+                      'Use a clear image with the affected leaf or crop visible.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey, height: 1.4),
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: FilledButton.icon(
+                        onPressed: isSelecting ? null : showImageSourceOptions,
+                        icon: isSelecting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.upload_file),
+                        label: Text(
+                          isSelecting ? 'Selecting...' : 'Select crop image',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: Column(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: FutureBuilder<List<int>>(
+                        future: selectedImage!.readAsBytes(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const SizedBox(
+                              height: 280,
+                              child: Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          }
+
+                          if (snapshot.hasError || snapshot.data == null) {
+                            return Container(
+                              height: 280,
+                              color: Colors.grey.shade100,
+                              alignment: Alignment.center,
+                              child: const Text(
+                                'Could not preview this image.',
+                              ),
+                            );
+                          }
+
+                          return Image.memory(
+                            Uint8List.fromList(snapshot.data!),
+                            width: double.infinity,
+                            height: 280,
+                            fit: BoxFit.cover,
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed:
+                                isSelecting || isAnalyzing
+                                    ? null
+                                    : showImageSourceOptions,
+                            icon: const Icon(Icons.swap_horiz),
+                            label: const Text('Change image'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: isAnalyzing ? null : removeImage,
+                            icon: const Icon(Icons.delete_outline),
+                            label: const Text('Remove'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        selectedImage!.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Color(0xFF2E7D32)),
+                      SizedBox(width: 10),
+                      Text(
+                        'Photo tips',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('• Keep the leaf or crop in focus.'),
+                  const SizedBox(height: 7),
+                  const Text('• Use good natural light where possible.'),
+                  const SizedBox(height: 7),
+                  const Text('• Avoid covering the affected area.'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: hasImage && !isAnalyzing ? analyzeCrop : null,
+                icon: isAnalyzing
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.smart_toy_outlined),
+                label: Text(isAnalyzing ? 'Analyzing...' : 'Analyze crop'),
+              ),
+            ),
+            const SizedBox(height: 20),
+            _buildAnalysisCard(),
+          ],
+        ),
       ),
     );
   }
