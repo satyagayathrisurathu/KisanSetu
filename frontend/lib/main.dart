@@ -32,64 +32,19 @@ class KisanSetuApp extends StatelessWidget {
   }
 }
 
-class MainNavigationPage extends StatefulWidget {
+class MainNavigationPage extends StatelessWidget {
   const MainNavigationPage({super.key});
 
   @override
-  State<MainNavigationPage> createState() => _MainNavigationPageState();
-}
-
-class _MainNavigationPageState extends State<MainNavigationPage> {
-  int selectedIndex = 0;
-
-  void openTab(int index) {
-    setState(() {
-      selectedIndex = index;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final pages = [
-      HomePage(onOpenTab: openTab),
-      const WorkersPage(),
-      const MorePage(),
-    ];
-
-    return Scaffold(
-      body: pages[selectedIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedIndex,
-        onDestinationSelected: openTab,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.groups_outlined),
-            selectedIcon: Icon(Icons.groups),
-            label: 'Workers',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.more_horiz),
-            selectedIcon: Icon(Icons.more_horiz),
-            label: 'More',
-          ),
-        ],
-      ),
+    return const Scaffold(
+      body: HomePage(),
     );
   }
 }
 
 class HomePage extends StatelessWidget {
-  final void Function(int) onOpenTab;
-
-  const HomePage({
-    super.key,
-    required this.onOpenTab,
-  });
+  const HomePage({super.key});
 
   void openPage(BuildContext context, Widget page) {
     Navigator.push(
@@ -101,251 +56,428 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 900;
+
+          return SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              wide ? 36 : 20,
+              20,
+              wide ? 36 : 20,
+              36,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  height: 48,
-                  width: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade100,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    Icons.agriculture,
-                    color: Color(0xFF2E7D32),
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Welcome to',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 14,
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      height: 52,
+                      width: 52,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDDF2DF),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.agriculture,
+                        color: Color(0xFF1B7A32),
+                        size: 30,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Welcome to',
+                            style: TextStyle(
+                              color: Color(0xFF71807A),
+                              fontSize: 14,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'KisanSetu',
+                            style: TextStyle(
+                              fontSize: 27,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF176B2C),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Notifications',
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('No new notifications.'),
+                          ),
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.notifications_none_rounded,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      tooltip: 'Profile',
+                      onPressed: () => openPage(context, const MorePage()),
+                      icon: const CircleAvatar(
+                        radius: 19,
+                        backgroundColor: Color(0xFF2E7D32),
+                        child: Icon(
+                          Icons.person_outline_rounded,
+                          color: Colors.white,
                         ),
                       ),
-                      Text(
-                        'KisanSetu',
-                        style: TextStyle(
-                          fontSize: 25,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1B5E20),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Hero banner
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: const LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        Color(0xFF0E6B2C),
+                        Color(0xFF2E8B3C),
+                        Color(0xFF74B75B),
+                      ],
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        blurRadius: 18,
+                        offset: Offset(0, 8),
+                        color: Color(0x22000000),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        right: wide ? 180 : 100,
+                        top: -18,
+                        child: Icon(
+                          Icons.eco_rounded,
+                          size: wide ? 170 : 120,
+                          color: Colors.white.withOpacity(0.08),
+                        ),
+                      ),
+                      Positioned(
+                        right: -8,
+                        bottom: -10,
+                        child: Icon(
+                          Icons.grass_rounded,
+                          size: wide ? 150 : 110,
+                          color: Colors.white.withOpacity(0.10),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          wide ? 34 : 24,
+                          28,
+                          wide ? 320 : 24,
+                          28,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.eco_outlined,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Good Morning,',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              "Let's grow together",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 31,
+                                height: 1.1,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              'Manage your farm, track your work and make better farming decisions with KisanSetu.',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                height: 1.45,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Positioned(
+                        right: 20,
+                        top: 20,
+                        child: GestureDetector(
+                          onTap: null,
+                          child: Container(
+                            width: wide ? 180 : 145,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.92),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.wb_sunny_rounded,
+                                  color: Color(0xFFF5B400),
+                                  size: 34,
+                                ),
+                                const SizedBox(width: 10),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '29°C',
+                                        style: TextStyle(
+                                          color: Color(0xFF164B24),
+                                          fontSize: 23,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Hyderabad',
+                                        style: TextStyle(
+                                          color: Color(0xFF3B5D48),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Partly cloudy',
+                                        style: TextStyle(
+                                          color: Color(0xFF345A43),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: Color(0xFF2E7D32),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                IconButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('No new notifications.'),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.notifications_none),
+                const SizedBox(height: 30),
+
+                // Quick actions
+                const Text(
+                  'Quick actions',
+                  style: TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF153B22),
+                  ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF2E7D32),
-                    Color(0xFF66BB6A),
+                const SizedBox(height: 16),
+
+                GridView(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: wide ? 2 : 1,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: wide ? 3.15 : 2.2,
+                  ),
+                  children: [
+                    QuickActionCard(
+                      title: 'Weather',
+                      subtitle: 'Get weather updates and farming suggestions.',
+                      icon: Icons.wb_sunny_outlined,
+                      iconColor: const Color(0xFF2F80ED),
+                      background: const Color(0xFFEAF4FF),
+                      onTap: () => openPage(context, const WeatherPage()),
+                    ),
+                    QuickActionCard(
+                      title: 'Machinery',
+                      subtitle: 'Track and manage your machinery and equipment.',
+                      icon: Icons.agriculture_rounded,
+                      iconColor: const Color(0xFF6F4BD8),
+                      background: const Color(0xFFF1EDFF),
+                      onTap: () => openPage(context, const MachineryPage()),
+                    ),
+                    QuickActionCard(
+                      title: 'AI Crop Detection',
+                      subtitle: 'Detect crop health and get AI-powered insights.',
+                      icon: Icons.spa_outlined,
+                      badge: 'AI',
+                      iconColor: const Color(0xFF1D8A4A),
+                      background: const Color(0xFFEAF9EF),
+                      onTap: () => openPage(
+                        context,
+                        const CropDiseasePage(),
+                      ),
+                    ),
+                    QuickActionCard(
+                      title: 'Workers',
+                      subtitle: 'Manage workers and assign farm tasks.',
+                      icon: Icons.engineering_outlined,
+                      iconColor: const Color(0xFF2878C8),
+                      background: const Color(0xFFEAF4FF),
+                      onTap: () => openPage(context, const WorkersPage()),
+                    ),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Smart farming starts here',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 23,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Manage workers, coordinate machinery and make better farming decisions.',
-                    style: TextStyle(
-                      color: Colors.white,
-                      height: 1.4,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Farm overview',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.35,
-              children: [
-                OverviewCard(
-                  title: 'Farm area',
-                  value: '5 Acres',
-                  icon: Icons.landscape,
-                  color: const Color(0xFF558B2F),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Your farm area is 5 acres.'),
-                      ),
-                    );
-                  },
-                ),
-                OverviewCard(
-                  title: 'Active crops',
-                  value: '3',
-                  icon: Icons.grass,
-                  color: const Color(0xFF00897B),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Crop tracking is not available yet.'),
-                      ),
-                    );
-                  },
-                ),
-                OverviewCard(
-                  title: 'Workers',
-                  value: '8',
-                  icon: Icons.groups,
-                  color: const Color(0xFF1565C0),
-                  onTap: () {
-                    onOpenTab(1);
-                  },
-                ),
-                OverviewCard(
-                  title: 'Pending tasks',
-                  value: '4',
-                  icon: Icons.task_alt,
-                  color: const Color(0xFFEF6C00),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('You have 4 pending tasks.'),
-                      ),
-                    );
-                  },
-                ),
+                const SizedBox(height: 10),
               ],
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'Quick actions',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ActionTile(
-              icon: Icons.cloud_outlined,
-              title: 'Check weather',
-              subtitle: 'View weather information for your location',
-              onTap: () {
-                openPage(context, const WeatherPage());
-              },
-            ),
-            ActionTile(
-              icon: Icons.groups_outlined,
-              title: 'Manage workers',
-              subtitle: 'Add workers and assign farm activities',
-              onTap: () {
-                onOpenTab(1);
-              },
-            ),
-            ActionTile(
-              icon: Icons.camera_alt_outlined,
-              title: 'Crop disease detection',
-              subtitle: 'Upload a crop image for AI analysis',
-              onTap: () {
-                openPage(context, const CropDiseasePage());
-              },
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 }
 
-class OverviewCard extends StatelessWidget {
+class QuickActionCard extends StatelessWidget {
   final String title;
-  final String value;
+  final String subtitle;
   final IconData icon;
-  final Color color;
+  final Color iconColor;
+  final Color background;
   final VoidCallback onTap;
+  final String? badge;
 
-  const OverviewCard({
+  const QuickActionCard({
     super.key,
     required this.title,
-    required this.value,
+    required this.subtitle,
     required this.icon,
-    required this.color,
+    required this.iconColor,
+    required this.background,
     required this.onTap,
+    this.badge,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      color: Colors.white,
+      color: background,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(
+          color: iconColor.withOpacity(0.10),
+        ),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.all(22),
+          child: Row(
             children: [
-              Icon(icon, color: color, size: 28),
-              const Spacer(),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    height: 64,
+                    width: 64,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.65),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      icon,
+                      size: 34,
+                      color: iconColor,
+                    ),
+                  ),
+                  if (badge != null)
+                    Positioned(
+                      right: -4,
+                      bottom: -2,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2E7D32),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          badge!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF113A22),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.4,
+                        color: Color(0xFF5B6D62),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 13,
-                ),
+              const SizedBox(width: 12),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 30,
+                color: iconColor.withOpacity(0.90),
               ),
             ],
           ),
@@ -963,8 +1095,12 @@ class _WorkersPageState extends State<WorkersPage> {
   Widget build(BuildContext context) {
     final visibleWorkers = filteredWorkers;
 
-    return SafeArea(
-      child: Column(
+    return Scaffold(
+  appBar: AppBar(
+    title: const Text('Workers'),
+  ),
+  body: SafeArea(
+    child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
@@ -1140,7 +1276,7 @@ class _WorkersPageState extends State<WorkersPage> {
                                 ),
                                 trailing: IconButton(
                                   icon: const Icon(Icons.more_vert),
-                                  onPressed: () => showWorkerOptions(worker),
+                                 onPressed: () => showWorkerOptions(worker),
                                 ),
                               ),
                             );
@@ -1150,10 +1286,10 @@ class _WorkersPageState extends State<WorkersPage> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 }
-
 
 class CropDiseasePage extends StatefulWidget {
   const CropDiseasePage({super.key});
@@ -1161,8 +1297,7 @@ class CropDiseasePage extends StatefulWidget {
   @override
   State<CropDiseasePage> createState() => _CropDiseasePageState();
 }
-
-class _CropDiseasePageState extends State<CropDiseasePage> {
+  class _CropDiseasePageState extends State<CropDiseasePage> {
   final ImagePicker _picker = ImagePicker();
   XFile? selectedImage;
   bool isSelecting = false;
@@ -1176,7 +1311,6 @@ class _CropDiseasePageState extends State<CropDiseasePage> {
       analysisResult = null;
       analysisError = null;
     });
-
     try {
       final image = await _picker.pickImage(
         source: source,
