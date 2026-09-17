@@ -1,4 +1,4 @@
-import mimetypes
+﻿import mimetypes
 import os
 import sqlite3
 from typing import Any
@@ -33,20 +33,6 @@ def get_connection() -> sqlite3.Connection:
 def init_db() -> None:
     connection = get_connection()
     cursor = connection.cursor()
-
-    cursor.execute(
-        '''
-        CREATE TABLE IF NOT EXISTS farm_plans (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            crop_name TEXT NOT NULL,
-            farm_area TEXT NOT NULL,
-            activity TEXT NOT NULL,
-            sowing_date TEXT NOT NULL,
-            harvest_date TEXT NOT NULL,
-            notes TEXT DEFAULT ''
-        )
-        '''
-    )
 
     cursor.execute(
         '''
@@ -156,15 +142,6 @@ def startup_event() -> None:
     init_db()
 
 
-class FarmPlan(BaseModel):
-    crop_name: str
-    farm_area: str
-    activity: str
-    sowing_date: str
-    harvest_date: str
-    notes: str = ''
-
-
 class Worker(BaseModel):
     name: str
     phone: str
@@ -206,44 +183,6 @@ def rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
 @app.get('/')
 def root() -> dict[str, str]:
     return {'message': 'Welcome to KisanSetu backend'}
-
-
-@app.post('/farm-plans')
-def create_farm_plan(plan: FarmPlan) -> dict[str, Any]:
-    connection = get_connection()
-    cursor = connection.cursor()
-    cursor.execute(
-        '''
-        INSERT INTO farm_plans
-        (crop_name, farm_area, activity, sowing_date, harvest_date, notes)
-        VALUES (?, ?, ?, ?, ?, ?)
-        ''',
-        (
-            plan.crop_name,
-            plan.farm_area,
-            plan.activity,
-            plan.sowing_date,
-            plan.harvest_date,
-            plan.notes,
-        ),
-    )
-    connection.commit()
-    row = cursor.execute(
-        'SELECT * FROM farm_plans WHERE id = ?', (cursor.lastrowid,)
-    ).fetchone()
-    connection.close()
-    return dict(row)
-
-
-@app.get('/farm-plans')
-def get_farm_plans() -> list[dict[str, Any]]:
-    connection = get_connection()
-    rows = connection.execute(
-        'SELECT * FROM farm_plans ORDER BY id DESC'
-    ).fetchall()
-    connection.close()
-    return rows_to_dicts(rows)
-
 
 @app.post('/workers')
 def create_worker(worker: Worker) -> dict[str, Any]:

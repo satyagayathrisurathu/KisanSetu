@@ -52,7 +52,6 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
   Widget build(BuildContext context) {
     final pages = [
       HomePage(onOpenTab: openTab),
-      const PlansPage(),
       const WorkersPage(),
       const MorePage(),
     ];
@@ -67,11 +66,6 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
             label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month),
-            label: 'Plans',
           ),
           NavigationDestination(
             icon: Icon(Icons.groups_outlined),
@@ -188,7 +182,7 @@ class HomePage extends StatelessWidget {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Plan crops, manage workers, track costs and make better farming decisions.',
+                    'Manage workers, coordinate machinery and make better farming decisions.',
                     style: TextStyle(
                       color: Colors.white,
                       height: 1.4,
@@ -234,7 +228,11 @@ class HomePage extends StatelessWidget {
                   icon: Icons.grass,
                   color: const Color(0xFF00897B),
                   onTap: () {
-                    onOpenTab(1);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Crop tracking is not available yet.'),
+                      ),
+                    );
                   },
                 ),
                 OverviewCard(
@@ -243,7 +241,7 @@ class HomePage extends StatelessWidget {
                   icon: Icons.groups,
                   color: const Color(0xFF1565C0),
                   onTap: () {
-                    onOpenTab(2);
+                    onOpenTab(1);
                   },
                 ),
                 OverviewCard(
@@ -271,14 +269,6 @@ class HomePage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             ActionTile(
-              icon: Icons.add_circle_outline,
-              title: 'Create farm plan',
-              subtitle: 'Add crop activities and important dates',
-              onTap: () {
-                openPage(context, const FarmPlanPage());
-              },
-            ),
-            ActionTile(
               icon: Icons.cloud_outlined,
               title: 'Check weather',
               subtitle: 'View weather information for your location',
@@ -291,7 +281,7 @@ class HomePage extends StatelessWidget {
               title: 'Manage workers',
               subtitle: 'Add workers and assign farm activities',
               onTap: () {
-                onOpenTab(2);
+                onOpenTab(1);
               },
             ),
             ActionTile(
@@ -409,340 +399,6 @@ class ActionTile extends StatelessWidget {
           size: 16,
         ),
         onTap: onTap,
-      ),
-    );
-  }
-}
-
-class FarmPlanPage extends StatefulWidget {
-  const FarmPlanPage({super.key});
-
-  @override
-  State<FarmPlanPage> createState() => _FarmPlanPageState();
-}
-
-class _FarmPlanPageState extends State<FarmPlanPage> {
-  final cropController = TextEditingController();
-  final areaController = TextEditingController();
-  final activityController = TextEditingController();
-  final sowingController = TextEditingController();
-  final harvestController = TextEditingController();
-  final notesController = TextEditingController();
-
-  bool isSaving = false;
-
-  @override
-  void dispose() {
-    cropController.dispose();
-    areaController.dispose();
-    activityController.dispose();
-    sowingController.dispose();
-    harvestController.dispose();
-    notesController.dispose();
-    super.dispose();
-  }
-
-  Future<void> saveFarmPlan() async {
-    if (cropController.text.trim().isEmpty ||
-        areaController.text.trim().isEmpty ||
-        activityController.text.trim().isEmpty ||
-        sowingController.text.trim().isEmpty ||
-        harvestController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all required fields.'),
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      isSaving = true;
-    });
-
-    try {
-      final response = await http.post(
-        Uri.parse('$apiBaseUrl/farm-plans'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'crop_name': cropController.text.trim(),
-          'farm_area': areaController.text.trim(),
-          'activity': activityController.text.trim(),
-          'sowing_date': sowingController.text.trim(),
-          'harvest_date': harvestController.text.trim(),
-          'notes': notesController.text.trim(),
-        }),
-      );
-
-      if (!mounted) return;
-
-      if (response.statusCode == 200 ||
-          response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Farm plan saved successfully.'),
-          ),
-        );
-        Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Could not save plan: ${response.body}',
-            ),
-          ),
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Backend is not running. Start FastAPI and try again.',
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          isSaving = false;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Farm Plan'),
-        backgroundColor: Colors.green.shade50,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            TextField(
-              controller: cropController,
-              decoration: const InputDecoration(
-                labelText: 'Crop name',
-                hintText: 'Example: Rice',
-                prefixIcon: Icon(Icons.grass),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: areaController,
-              decoration: const InputDecoration(
-                labelText: 'Farm area',
-                hintText: 'Example: 2 acres',
-                prefixIcon: Icon(Icons.landscape),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: activityController,
-              decoration: const InputDecoration(
-                labelText: 'Farm activity',
-                hintText: 'Example: Seed sowing',
-                prefixIcon: Icon(Icons.agriculture),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: sowingController,
-              decoration: const InputDecoration(
-                labelText: 'Sowing date',
-                hintText: 'Example: 2026-09-15',
-                prefixIcon: Icon(Icons.calendar_today),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: harvestController,
-              decoration: const InputDecoration(
-                labelText: 'Expected harvest date',
-                hintText: 'Example: 2027-01-15',
-                prefixIcon: Icon(Icons.event_available),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: notesController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Notes',
-                hintText: 'Additional information',
-                prefixIcon: Icon(Icons.notes),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: isSaving ? null : saveFarmPlan,
-                icon: isSaving
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.save),
-                label: Text(
-                  isSaving ? 'Saving...' : 'Save farm plan',
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class PlansPage extends StatefulWidget {
-  const PlansPage({super.key});
-
-  @override
-  State<PlansPage> createState() => _PlansPageState();
-}
-
-class _PlansPageState extends State<PlansPage> {
-  List<dynamic> plans = [];
-  bool isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    loadPlans();
-  }
-
-  Future<void> loadPlans() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$apiBaseUrl/farm-plans'),
-      );
-
-      if (!mounted) return;
-
-      if (response.statusCode == 200) {
-        setState(() {
-          plans = jsonDecode(response.body);
-          isLoading = false;
-        });
-      } else {
-        setState(() {
-          isLoading = false;
-        });
-      }
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        isLoading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: RefreshIndicator(
-        onRefresh: loadPlans,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            const Text(
-              'My Farm Plans',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Your saved crop activities and farming schedules.',
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 20),
-            if (isLoading)
-              const Center(
-                child: CircularProgressIndicator(),
-              )
-            else if (plans.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(30),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Column(
-                  children: [
-                    Icon(
-                      Icons.calendar_month_outlined,
-                      size: 60,
-                      color: Colors.grey,
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      'No farm plans yet',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      'Create your first farm plan from the Home page.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ...plans.map(
-                (plan) => Card(
-                  elevation: 0,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.green.shade100,
-                      child: const Icon(
-                        Icons.grass,
-                        color: Colors.green,
-                      ),
-                    ),
-                    title: Text(
-                      plan['crop_name'] ?? 'Unknown crop',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    subtitle: Text(
-                      '${plan['activity']}\n'
-                      'Area: ${plan['farm_area']}\n'
-                      'Sowing: ${plan['sowing_date']}',
-                    ),
-                    isThreeLine: true,
-                  ),
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }
